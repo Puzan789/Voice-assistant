@@ -9,6 +9,7 @@ from langchain_groq import ChatGroq
 from scipy.io import wavfile
 from gtts import gTTS
 import pygame
+from langchain.prompts import ChatPromptTemplate
 
 # Load Whisper model for speech-to-text
 def load_whisper():
@@ -62,34 +63,44 @@ def load_llm():
     return chat_groq
 
 # Use the LLM to classify the intent of the user's input
-def classify_intent_with_llm(text, llm):
-    prompt = f"""
-    You are an AI trained to classify customer intents. The possible intents are:
-    1. order_status
-    2. return_policy
-    3. refund_status
-    4. payment_issue
-    5. product_inquiry
-    6. general_inquiry
 
-    Based on the following customer input, determine the most appropriate intent:
 
-    Customer input: "{text}"
 
-    The intent is:
-    """
-    messages = [{"role": "system", "content": prompt}]
-    response = llm(messages)
-    intent = response.strip().lower()
+
+
+def classify_intent_with_llm(user_question):
+    llm=load_llm()
+    valid_intents = [
+        "order_status",
+        "return_policy",
+        "refund_status",
+        "payment_issue",
+        "product_inquiry",
+        "general_inquiry"
+    ]
     
-    valid_intents = ["order_status", "return_policy", "refund_status", "payment_issue", "product_inquiry", "general_inquiry"]
-    if intent in valid_intents:
-        return intent
-    else:
-        return "unknown"
+    # Create the options for the intents
+    intent_options = "\n".join(f"- {intent}" for intent in valid_intents)
+    
+    # Generate the prompt
+    prompt = f"""
+    You are an AI assistant. Your job is to classify the user's input into one of the following intents. Return only the intent, without any additional words:
+
+    {intent_options}
+
+    User: "{user_question}"
+    Intent:
+    """
+    prompt=ChatPromptTemplate.from_template(prompt)
+    prompt=prompt.invoke({"user_input":user_question})
+    result=llm.invoke(prompt)
+    
+    return result.content
 
 
-def get_response_llm(user_question, intent, memory):
+
+
+def get_response_llm(user_question, intent):
     input_prompt = load_general_prompt(user_question, intent)
 
     chat_groq = load_llm()
@@ -98,14 +109,12 @@ def get_response_llm(user_question, intent, memory):
     input_data = {
         "question": user_question,
         "intent": intent,
-        "chat_history": memory.load_memory() if memory else ""
     }
 
     chain = LLMChain(
         llm=chat_groq,
         prompt=prompt,
         verbose=True,
-        memory=memory
     )
 
     response = chain.invoke(input_data)
