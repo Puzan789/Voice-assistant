@@ -87,13 +87,11 @@ def classify_intent_with_llm(text, llm):
         return intent
     else:
         return "unknown"
-    
+
+
 def get_response_llm(user_question, intent, memory):
-    if intent == "unknown":
-        input_prompt = load_general_prompt(user_question)
-    else:
-        input_prompt = load_prompt()
-    
+    input_prompt = load_general_prompt(user_question, intent)
+
     chat_groq = load_llm()
     prompt = PromptTemplate.from_template(input_prompt)
 
@@ -113,13 +111,17 @@ def get_response_llm(user_question, intent, memory):
     response = chain.invoke(input_data)
     return response['text']
 
-# Load the general prompt for LLM when intent is unknown
-def load_general_prompt(user_question):
+
+
+def load_general_prompt(user_question, intent):
     input_prompt = f"""
     As an expert customer service representative, your goal is to provide accurate and concise answers to customer inquiries.
 
+    If the customer's intent is clear and related to one of the following categories: {intent}, provide a specific response based on that intent.
+    If the intent is not clear or does not match any specific category, provide a general helpful response.
+
     Customer question: {user_question}
-    
+
     Response:
     """
     return input_prompt
